@@ -1,5 +1,7 @@
 package app;
 
+import dsu.DisjointSetUnion;
+import graph.Edge;
 import graph.WeightedGraph;
 
 public class Main {
@@ -15,7 +17,18 @@ public class Main {
 
         System.out.println("Districts: " + city.vertexCount());
         System.out.println("Roads: " + city.edgeCount());
-        System.out.println("Roads from district 0: " + city.edgesFrom(0));
-        System.out.println("Roads from district 4: " + city.edgesFrom(4));
+
+        DisjointSetUnion dsu = new DisjointSetUnion(city.vertexCount());
+
+        for (Edge road : city.edges()) {
+            dsu.union(road.from(), road.to());
+        }
+
+        System.out.println("Connected components: " + dsu.componentCount());
+        System.out.println("0 and 2 connected: " + dsu.connected(0, 2));
+        System.out.println("0 and 4 connected: " + dsu.connected(0, 4));
+        System.out.println("Component size of 0: " + dsu.componentSize(0));
+        System.out.println("Successful unions: "
+                + dsu.statistics().successfulUnions());
     }
 }
