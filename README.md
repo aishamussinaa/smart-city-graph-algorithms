@@ -8,10 +8,11 @@ This Java application models a city's infrastructure as a weighted graph.
 Vertices represent districts, and edges represent roads. Weights represent
 construction costs or travel distances.
 
-Implemented: weighted graph representation and Disjoint Set Union (DSU).
-MST algorithms, SCC, topological sorting, Dijkstra, and benchmarks
-are planned for the next development steps.
+Implemented: weighted graph representation, Disjoint Set Union (DSU),
+and Kruskal's minimum-spanning-forest algorithm.
 
+Prim, SCC, topological sorting, Dijkstra, and benchmarks are planned
+for the next development steps.
 ## Implementation
 
 The project uses Java 17 and requires no external libraries.
@@ -66,16 +67,43 @@ Compression writes exclude links created by union.
 Resetting statistics does not reset components or undo path compression.
 Future experiments will create a fresh DSU for each measured run.
 
+### Kruskal's Algorithm
+
+Kruskal processes a copy of the logical edge list sorted by weight.
+An edge is selected only when DSU successfully merges its endpoints'
+components. Edges that would create cycles are rejected.
+
+Processing stops when one component remains or all edges have been
+examined. A disconnected graph produces a minimum spanning forest.
+
+Directed graphs are rejected. Negative weights, parallel edges, and
+equal weights are supported. Self-loops are never selected.
+
+`MstResult` contains an immutable copy of the selected edges, their total
+weight, the component count, and operation counters.
+
+A single-vertex graph is connected and has total weight zero.
+For an empty graph, the component count is zero and isConnected is false.
+
+Weights and totals use long. Math.addExact throws ArithmeticException
+if an intermediate accumulated total exceeds the long range.
+
+### MST Operation Counters
+
+- `edgeExaminations`: edges inspected in the sorted-edge processing loop.
+- `weightComparisons`: comparator calls during edge sorting.
+- `dsuFindCalls`: find calls reported by the algorithm's DSU.
+- `dsuUnionCalls`: union attempts reported by the algorithm's DSU.
+- `queueOffers` and `queuePolls`: zero for Kruskal; reserved for Prim.
+
+Sorting comparisons are counted separately from edge examinations.
+Each examined edge causes one union attempt and two find calls.
+
 ### City Demonstration
 
-The demonstration has five districts and four undirected roads.
-Processing the roads with DSU produces two components:
-{0, 1, 2} and {3, 4}.
-
-Three unions succeed. The remaining road connects districts that already
-belong to the same component. This demonstrates undirected connectivity;
-DSU does not compute directed strongly connected components.
-
+The current demonstration contains five districts and five roads.
+Kruskal selects four roads with weights 2, 3, 4, and 5.
+Their total weight is 14, and all districts belong to one component.
 ## Complexity Analysis
 
 ### Graph Representation
@@ -115,6 +143,21 @@ initialization.
 
 Complexity analysis for the remaining algorithms will be added with
 their implementations.
+### Kruskal
+
+Creating DSU takes O(V) time. Copying and sorting E edges takes
+O(E log(E + 1)) time. Processing edges takes O(E alpha(V)) amortized time.
+
+The general total bound is
+O(V + E log(E + 1) + E alpha(V)).
+For connected graphs with at least two vertices, this simplifies
+to O(E log E).
+
+Additional space is O(V + E), including DSU, the copied edge list,
+sorting workspace, and the selected edges.
+
+More edges increase sorting and processing work. More vertices increase
+DSU initialization and storage. Isolated vertices are included in V.
 
 ## Running the Project
 
@@ -125,6 +168,7 @@ their implementations.
 5. Run `app.Main` for the demonstration.
 6. Run `graph.WeightedGraphTest` for the graph tests.
 7. Run `dsu.DisjointSetUnionTest` for the DSU tests.
+8. Run `mst.KruskalTest` for the Kruskal tests.
 
 ## Experimental Setup
 
@@ -162,7 +206,8 @@ that verifies fewer root-search links after path compression.
 
 ## Testing
 
-All 14 tests passed on Microsoft OpenJDK 17.0.18.
+The graph, DSU, and Kruskal test suites have passed on Microsoft
+OpenJDK 17.0.18: 24 tests in total.
 
 ### Graph Tests: 6
 
@@ -189,13 +234,33 @@ The randomized test uses seed 42 and performs 250 union attempts on
 component sizes, and the component count against the reference model.
 
 Tests throw AssertionError when a check fails and do not require -ea.
-MST, SCC, topological-order, and shortest-path tests are still pending.
+### Kruskal Tests: 10
+
+1. A connected graph with a known minimum weight.
+2. A disconnected graph with an isolated vertex.
+3. Equal weights and multiple valid MSTs.
+4. Parallel edges and self-loops.
+5. Negative weights and weights beyond the int range.
+6. Single-vertex and empty graphs.
+7. Rejection of directed graphs.
+8. Preservation of input order and protection of result edges.
+9. Operation counters, including a rejected cycle edge.
+10. Detection of accumulated weight overflow.
+
+Forest checks verify the expected weight, component count, V - C edges,
+absence of cycles, membership of selected edges in the input, and
+connectivity within every original component.
+
+Prim, cross-algorithm MST comparisons, SCC, topological-order,
+and shortest-path tests are still pending.
 
 ## Conclusion
 
-The weighted graph representation and optimized DSU are implemented
-and tested. The application can represent city roads and determine
-undirected connectivity.
+The graph representation, optimized DSU, and Kruskal's algorithm
+are implemented and tested.
 
-The next step is implementing and comparing Kruskal's and Prim's
-minimum-spanning-tree algorithms.
+The application can find a minimum spanning tree for connected
+undirected graphs and a minimum spanning forest for disconnected graphs.
+
+The next step is implementing Prim's algorithm and comparing both
+algorithms' results.

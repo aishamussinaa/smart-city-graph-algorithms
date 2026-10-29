@@ -1,8 +1,9 @@
 package app;
 
-import dsu.DisjointSetUnion;
 import graph.Edge;
 import graph.WeightedGraph;
+import mst.Kruskal;
+import mst.MstResult;
 
 public class Main {
     public static void main(String[] args) {
@@ -14,21 +15,21 @@ public class Main {
         city.addEdge(0, 2, 6);
         city.addEdge(1, 2, 3);
         city.addEdge(3, 4, 2);
+        city.addEdge(2, 3, 5);
 
-        System.out.println("Districts: " + city.vertexCount());
-        System.out.println("Roads: " + city.edgeCount());
+        MstResult result = Kruskal.compute(city);
 
-        DisjointSetUnion dsu = new DisjointSetUnion(city.vertexCount());
+        System.out.println("Algorithm: Kruskal");
+        System.out.println("Connected: " + result.isConnected());
+        System.out.println("Components: " + result.components());
+        System.out.println("Selected roads: " + result.edges().size());
+        System.out.println("Total weight: " + result.totalWeight());
 
-        for (Edge road : city.edges()) {
-            dsu.union(road.from(), road.to());
+        for (Edge road : result.edges()) {
+            System.out.println(
+                    road.from() + " - " + road.to()
+                            + ", weight: " + road.weight()
+            );
         }
-
-        System.out.println("Connected components: " + dsu.componentCount());
-        System.out.println("0 and 2 connected: " + dsu.connected(0, 2));
-        System.out.println("0 and 4 connected: " + dsu.connected(0, 4));
-        System.out.println("Component size of 0: " + dsu.componentSize(0));
-        System.out.println("Successful unions: "
-                + dsu.statistics().successfulUnions());
     }
 }
