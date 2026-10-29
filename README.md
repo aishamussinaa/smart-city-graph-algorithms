@@ -9,10 +9,11 @@ Vertices represent districts, and edges represent roads. Weights represent
 construction costs or travel distances.
 
 Implemented: weighted graph representation, Disjoint Set Union (DSU),
-and Kruskal's minimum-spanning-forest algorithm.
+Kruskal's algorithm, and Prim's algorithm.
 
-Prim, SCC, topological sorting, Dijkstra, and benchmarks are planned
+SCC, topological sorting, Dijkstra, and performance benchmarks are planned
 for the next development steps.
+
 ## Implementation
 
 The project uses Java 17 and requires no external libraries.
@@ -88,22 +89,53 @@ For an empty graph, the component count is zero and isConnected is false.
 Weights and totals use long. Math.addExact throws ArithmeticException
 if an intermediate accumulated total exceeds the long range.
 
+### Prim's Algorithm
+
+Prim uses a visited array and Java's PriorityQueue, implemented as a
+binary heap. Starting from an unvisited vertex, it adds outgoing edges
+whose destinations have not been visited.
+
+The cheapest queued edge is extracted next. If its destination is already
+visited, the entry is discarded. Otherwise, the edge is selected and the
+new vertex's outgoing edges are examined.
+
+This is lazy Prim: obsolete entries remain in the queue until extracted.
+The outer loop starts a new tree for each unvisited component, so
+disconnected graphs produce a minimum spanning forest.
+
+Directed graphs are rejected. Negative weights and parallel edges are
+supported; self-loops are not selected. Totals use Math.addExact with
+the same intermediate-overflow checks as Kruskal.
+
 ### MST Operation Counters
 
-- `edgeExaminations`: edges inspected in the sorted-edge processing loop.
-- `weightComparisons`: comparator calls during edge sorting.
-- `dsuFindCalls`: find calls reported by the algorithm's DSU.
-- `dsuUnionCalls`: union attempts reported by the algorithm's DSU.
-- `queueOffers` and `queuePolls`: zero for Kruskal; reserved for Prim.
+| Counter | Kruskal | Prim |
+| --- | --- | --- |
+| edgeExaminations | Edges inspected after sorting | Adjacency entries inspected when visiting vertices |
+| weightComparisons | Sorting comparator calls | Priority queue comparator calls |
+| dsuFindCalls | Calls reported by DSU | Zero |
+| dsuUnionCalls | Attempts reported by DSU | Zero |
+| queueOffers | Zero | Edges inserted into the queue |
+| queuePolls | Zero | Entries removed, including obsolete entries |
 
-Sorting comparisons are counted separately from edge examinations.
-Each examined edge causes one union attempt and two find calls.
+Kruskal performs one union attempt and two find calls per examined edge.
+
+Prim visits every vertex and scans every adjacency list. For an
+undirected graph with E logical edges and L self-loops, it examines
+2E - L adjacency entries. Each non-loop edge enters the queue once,
+and the queue is fully drained for each component.
+
+The counters describe different operations and must be interpreted
+using these definitions rather than treated as interchangeable totals.
 
 ### City Demonstration
 
 The current demonstration contains five districts and five roads.
 Kruskal selects four roads with weights 2, 3, 4, and 5.
 Their total weight is 14, and all districts belong to one component.
+Prim also returns four roads with total weight 14. The demonstration
+prints both results and confirms that their total weights are equal.
+
 ## Complexity Analysis
 
 ### Graph Representation
@@ -159,6 +191,22 @@ sorting workspace, and the selected edges.
 More edges increase sorting and processing work. More vertices increase
 DSU initialization and storage. Isolated vertices are included in V.
 
+### Prim
+
+The visited array and outer loop require O(V) time. Scanning all
+adjacency lists takes O(V + E) time.
+
+Each non-loop edge is inserted into and removed from the binary heap
+once. The heap may contain O(E) entries, including obsolete entries.
+Therefore, this lazy implementation takes O(V + E log(E + 1)) time.
+
+Additional space is O(V + E): the visited array, selected edges,
+and priority queue.
+
+The bound uses log E because this implementation stores candidate edges
+in the heap and does not use a decrease-key operation with one entry
+per vertex.
+
 ## Running the Project
 
 1. Open the repository in IntelliJ IDEA.
@@ -169,6 +217,7 @@ DSU initialization and storage. Isolated vertices are included in V.
 6. Run `graph.WeightedGraphTest` for the graph tests.
 7. Run `dsu.DisjointSetUnionTest` for the DSU tests.
 8. Run `mst.KruskalTest` for the Kruskal tests.
+9. Run `mst.PrimTest` for the Prim tests and randomized MST comparison.
 
 ## Experimental Setup
 
@@ -198,16 +247,29 @@ Timing tables and plots will be added after implementing the algorithms.
 
 ## Comparison and Discussion
 
-Algorithm comparisons will be based on measured results and theoretical
-complexity. No experimental performance conclusions are claimed yet.
+Kruskal sorts the complete edge list and uses DSU to avoid cycles.
+Prim grows trees through adjacency lists and a priority queue.
 
-DSU optimizations are checked by correctness tests, including a test
-that verifies fewer root-search links after path compression.
+Both algorithms returned weight 14 for the demonstration graph.
+Their total weights also matched on 100 fixed-seed random connected
+graphs. Structural checks verified that their outputs were spanning
+trees without cycles.
+
+Equal-weight edges may produce different valid MSTs, so correctness
+comparisons use total weight and tree properties rather than identical
+edge lists or selection order.
+
+These are correctness results, not timing measurements. Execution-time
+and operation-count comparisons across the required graph sizes
+will be added after running the benchmarks.
+
+DSU tests separately verify union by size and the reduction in
+root-search work after path compression.
 
 ## Testing
 
-The graph, DSU, and Kruskal test suites have passed on Microsoft
-OpenJDK 17.0.18: 24 tests in total.
+The graph, DSU, Kruskal, and Prim test suites have passed on Microsoft
+OpenJDK 17.0.18: 35 tests in total.
 
 ### Graph Tests: 6
 
@@ -251,16 +313,43 @@ Forest checks verify the expected weight, component count, V - C edges,
 absence of cycles, membership of selected edges in the input, and
 connectivity within every original component.
 
-Prim, cross-algorithm MST comparisons, SCC, topological-order,
-and shortest-path tests are still pending.
+### Prim Tests: 11
+
+1. A connected graph with a known minimum weight.
+2. A disconnected graph with an isolated vertex.
+3. Equal weights and multiple valid MSTs.
+4. Parallel edges and self-loops.
+5. Negative weights and weights beyond the int range.
+6. Single-vertex and empty graphs.
+7. Rejection of directed graphs.
+8. Preservation of input order and protection of result edges.
+9. Adjacency, queue, and comparison counters.
+10. Detection of accumulated weight overflow.
+11. Comparison with Kruskal on 100 random connected graphs.
+
+The randomized comparison uses seed 42. Each graph has 2 to 20 vertices.
+A generated tree guarantees connectivity, then 2V additional edges
+are added. Weights range from -20 to 20; parallel edges and self-loops
+are permitted.
+
+Both algorithms receive the same graph. Tests compare their weights
+and validate edge membership, absence of cycles, component coverage,
+and the number of selected edges. Undirected edges are accepted in
+either orientation.
+
+These random graphs are correctness fixtures, separate from the
+required performance benchmark datasets.
+
+SCC, topological-order, and shortest-path tests are still pending.
 
 ## Conclusion
 
-The graph representation, optimized DSU, and Kruskal's algorithm
-are implemented and tested.
+The graph representation, optimized DSU, Kruskal, and Prim are implemented
+and tested. Both MST algorithms handle connected and disconnected
+undirected graphs.
 
-The application can find a minimum spanning tree for connected
-undirected graphs and a minimum spanning forest for disconnected graphs.
+Their results agree on known examples and 100 random connected graphs.
+No claim about which implementation is faster is made before benchmarking.
 
-The next step is implementing Prim's algorithm and comparing both
-algorithms' results.
+The next steps are directed connectivity analysis, shortest paths,
+and reproducible performance experiments.

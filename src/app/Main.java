@@ -4,6 +4,7 @@ import graph.Edge;
 import graph.WeightedGraph;
 import mst.Kruskal;
 import mst.MstResult;
+import mst.Prim;
 
 public class Main {
     public static void main(String[] args) {
@@ -17,9 +18,21 @@ public class Main {
         city.addEdge(3, 4, 2);
         city.addEdge(2, 3, 5);
 
-        MstResult result = Kruskal.compute(city);
+        MstResult kruskal = Kruskal.compute(city);
+        MstResult prim = Prim.compute(city);
 
-        System.out.println("Algorithm: Kruskal");
+        printResult("Kruskal", kruskal);
+        printResult("Prim", prim);
+
+        System.out.println(
+                "Same total weight: "
+                        + (kruskal.totalWeight() == prim.totalWeight())
+        );
+    }
+
+    private static void printResult(String algorithm, MstResult result) {
+        System.out.println();
+        System.out.println("Algorithm: " + algorithm);
         System.out.println("Connected: " + result.isConnected());
         System.out.println("Components: " + result.components());
         System.out.println("Selected roads: " + result.edges().size());
