@@ -9,10 +9,10 @@ Vertices represent districts, and edges represent roads. Weights represent
 construction costs or travel distances.
 
 Implemented: weighted graph representation, Disjoint Set Union (DSU),
-Kruskal's algorithm, and Prim's algorithm.
+Kruskal's algorithm, Prim's algorithm, and topological sorting.
 
-SCC, topological sorting, Dijkstra, and performance benchmarks are planned
-for the next development steps.
+SCC, Dijkstra, and performance benchmarks are planned for the next
+development steps.
 
 ## Implementation
 
@@ -136,6 +136,35 @@ Their total weight is 14, and all districts belong to one component.
 Prim also returns four roads with total weight 14. The demonstration
 prints both results and confirms that their total weights are equal.
 
+### Topological Sorting
+
+`TopologicalSort` implements Kahn's algorithm for directed graphs.
+
+It first counts incoming edges for every vertex. Vertices with zero
+indegree enter an ArrayDeque used as a FIFO queue. Removing a vertex
+reduces the indegrees of its outgoing neighbors. A neighbor enters
+the queue when its indegree becomes zero.
+
+If every vertex is processed, the result contains a valid topological
+ordering. Otherwise, the graph contains a cycle.
+
+On cyclic input, hasCycle is true and the returned order is empty.
+A partially processed order is not exposed as a valid result.
+An empty directed graph is a DAG with an empty ordering.
+
+Undirected input is rejected. Edge weights do not affect the ordering.
+Parallel edges are counted and processed individually.
+
+The result stores an immutable copy of the order and these counters:
+
+- `edgeExaminations`: edges scanned during indegree initialization,
+  plus outgoing adjacency entries scanned during vertex processing.
+- `queueOffers`: vertices inserted into the queue.
+- `queuePolls`: vertices removed from the queue.
+
+For a DAG, edgeExaminations equals 2E and both queue counters equal V.
+For cyclic graphs, processing may stop before every vertex is visited.
+
 ## Complexity Analysis
 
 ### Graph Representation
@@ -207,6 +236,20 @@ The bound uses log E because this implementation stores candidate edges
 in the heap and does not use a decrease-key operation with one entry
 per vertex.
 
+### Topological Sorting
+
+Initializing indegrees and scanning the edges takes O(V + E) time.
+Each vertex enters and leaves the queue at most once.
+Each outgoing adjacency entry is processed at most once after
+the initial indegree calculation.
+
+Total time is O(V + E), including cycle detection.
+Additional space is O(V) for indegrees, the queue, and the output order.
+The input graph is not copied.
+
+Increasing V adds vertex initialization and queue work; increasing E
+adds indegree updates and adjacency scans.
+
 ## Running the Project
 
 1. Open the repository in IntelliJ IDEA.
@@ -218,6 +261,7 @@ per vertex.
 7. Run `dsu.DisjointSetUnionTest` for the DSU tests.
 8. Run `mst.KruskalTest` for the Kruskal tests.
 9. Run `mst.PrimTest` for the Prim tests and randomized MST comparison.
+10. Run `connectivity.TopologicalSortTest` for topological sorting tests.
 
 ## Experimental Setup
 
@@ -268,8 +312,8 @@ root-search work after path compression.
 
 ## Testing
 
-The graph, DSU, Kruskal, and Prim test suites have passed on Microsoft
-OpenJDK 17.0.18: 35 tests in total.
+The graph, DSU, Kruskal, Prim, and topological sorting test suites
+have passed on Microsoft OpenJDK 17.0.18: 43 tests in total.
 
 ### Graph Tests: 6
 
@@ -340,16 +384,43 @@ either orientation.
 These random graphs are correctness fixtures, separate from the
 required performance benchmark datasets.
 
-SCC, topological-order, and shortest-path tests are still pending.
+### Topological Sorting Tests: 8
+
+1. A DAG with validation of its order and operation counters.
+2. A directed cycle, a graph with both cyclic and acyclic parts,
+   and a self-loop.
+3. A disconnected DAG with an isolated vertex.
+4. Parallel directed edges.
+5. Single-vertex and empty DAGs.
+6. Rejection of undirected input.
+7. Preservation of input and protection of the returned order.
+8. Validation on 100 random DAGs.
+
+Every valid result must contain each vertex exactly once.
+For every edge u -> v, the position of u must be smaller than
+the position of v. Different valid orderings are accepted.
+
+Random DAG tests use seed 42 and 1 to 20 vertices. Vertex IDs are shuffled,
+and each possible forward edge in that permutation is added with
+probability 0.3. This guarantees acyclicity without relying on numeric
+vertex order. Weights range from -10 to 10 and are ignored by sorting.
+
+Cycle tests verify that the algorithm reports a cycle and returns
+an empty order, including when some vertices were processed successfully.
+
+SCC and shortest-path tests are still pending.
 
 ## Conclusion
 
-The graph representation, optimized DSU, Kruskal, and Prim are implemented
-and tested. Both MST algorithms handle connected and disconnected
-undirected graphs.
+The graph representation, optimized DSU, Kruskal, Prim, and topological
+sorting are implemented and tested.
 
-Their results agree on known examples and 100 random connected graphs.
-No claim about which implementation is faster is made before benchmarking.
+Both MST algorithms handle connected and disconnected undirected graphs.
+Their weights agree on known examples and 100 random connected graphs.
 
-The next steps are directed connectivity analysis, shortest paths,
-and reproducible performance experiments.
+Topological sorting returns valid orders for DAGs and detects cycles.
+Tests validate every edge's ordering constraint, including on
+100 generated DAGs.
+
+The remaining work is SCC, shortest paths, and reproducible performance
+experiments. No execution-time comparison is claimed before benchmarking.
