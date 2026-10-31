@@ -10,9 +10,11 @@ construction costs or travel distances.
 
 Implemented: weighted graph representation, optimized Disjoint Set Union
 (DSU), Kruskal's and Prim's MST algorithms, topological sorting with cycle
-detection, and strongly connected components using Kosaraju's algorithm.
+detection, Kosaraju's strongly connected components, and Dijkstra's shortest
+distances with route reconstruction.
 
-Dijkstra's shortest paths and performance benchmarks are still pending.
+Performance experiments, plots, and the final results discussion are
+still pending.
 
 ## Implementation
 
@@ -187,6 +189,52 @@ of the reversed graph, and the second DFS pass: exactly 3E examinations.
 The vertex visit counter records one visit per vertex in each DFS pass:
 exactly 2V visits.
 
+### Dijkstra's Shortest Paths
+
+Dijkstra's algorithm finds shortest distances from a selected source and
+records predecessors to reconstruct routes. It supports directed and
+undirected graphs with non-negative weights.
+
+A priority queue selects the smallest tentative distance. Each successful
+relaxation inserts a new queue entry. Outdated entries are skipped when
+removed from the queue.
+
+All edge weights are validated before the search, including edges in
+unreachable components. Negative weights are rejected.
+
+Unreachable vertices have an empty OptionalLong distance and an empty
+path. The source has distance zero and a path containing only itself.
+Result arrays are defensively copied, and returned paths are immutable.
+
+Distances use long. Long.MAX_VALUE is a valid distance, distinct from
+unreachability. Overflowing candidate routes are skipped. If a reachable
+vertex has no route whose distance fits in long, the algorithm throws
+ArithmeticException instead of reporting it as unreachable.
+
+Operation counters record:
+- Logical edges examined during weight validation.
+- Adjacency entries examined during the search.
+- Successful relaxations.
+- Priority queue offers, polls, and comparator calls.
+
+Validation examines E logical edges. During the search, each reachable
+vertex's adjacency list is scanned once. Queue offers equal successful
+relaxations plus one for the source. Queue polls include outdated entries.
+
+### Why Negative Weights Are Not Supported
+
+Dijkstra's greedy argument relies on non-negative weights: a vertex
+extracted with the smallest tentative distance cannot later obtain a
+shorter route through an unsettled vertex.
+
+Negative edges invalidate this argument. For example, with edges
+s -> a (2), s -> b (5), and b -> a (-10), a standard Dijkstra implementation
+that finalizes vertices would finalize a at distance 2, although its
+shortest distance is -5.
+
+Bellman-Ford is an alternative when negative edges are allowed.
+Reachable negative cycles can make finite shortest distances undefined.
+
 ## Complexity Analysis
 
 ### Graph Representation
@@ -284,6 +332,28 @@ and component lists require O(V) space.
 Increasing either the number of vertices or edges increases the amount
 of work linearly. These bounds assume an adjacency-list representation.
 
+### Dijkstra's Algorithm
+
+With adjacency lists and Java's binary-heap PriorityQueue, time complexity
+is O(V + E log(E + 2)), including validation of all E edge weights.
+
+This implementation inserts a new entry for every successful relaxation
+instead of using decrease-key. There are O(E) successful relaxations and
+O(E + 1) queue entries over the run. Outdated entries are skipped without
+rescanning adjacency lists.
+
+Additional space complexity is O(V + E): distance, reachability, predecessor,
+and overflow-tracking arrays use O(V), while the queue can contain O(E)
+entries. The result also stores O(V) data.
+
+More vertices increase array initialization and storage costs. More edges
+increase validation, adjacency scanning, and potential heap operations.
+Only vertices reachable from the source have their adjacency lists scanned.
+
+A distance or reachability query takes O(1). Reconstructing a path of
+k vertices takes O(k) time and additional space. Producing paths for all
+vertices can require O(V squared) total output in the worst case; this is
+separate from computing shortest distances.
 
 ## Running the Project
 
@@ -299,6 +369,8 @@ of work linearly. These bounds assume an adjacency-list representation.
 10. Run `connectivity.TopologicalSortTest` for topological sorting tests.
 11. Run `connectivity.KosarajuTest` for the SCC tests.
     Expected final message: `All 8 SCC tests passed.`
+12. Run `shortestpath.DijkstraTest` for the shortest-path tests.
+        Expected final message: `All 10 Dijkstra tests passed.`
 
 ## Experimental Setup
 
@@ -349,8 +421,8 @@ root-search work after path compression.
 
 ## Testing
 
-The graph, DSU, Kruskal, Prim, topological sorting, and SCC test suites
-have passed on Microsoft OpenJDK 17.0.18: 51 tests in total.
+The graph, DSU, Kruskal, Prim, topological sorting, SCC, and Dijkstra test
+suites have passed on Microsoft OpenJDK 17.0.18: 61 tests in total.
 
 ### Graph Tests: 6
 
@@ -464,23 +536,45 @@ two vertices must belong to the same SCC if and only if each is reachable
 from the other. Tests also verify that every vertex occurs exactly once
 and validate the operation counters.
 
-Shortest-path tests are still pending.
+### Dijkstra Tests: 10
+
+1. Known shortest distances and routes in a directed graph.
+2. An undirected graph with a nonzero source vertex.
+3. Unreachable vertices with empty distances and paths.
+4. Zero-weight cycles, self-loops, equal weights, and parallel edges.
+5. Rejection of negative weights, including in unreachable components.
+6. A single vertex, an empty graph with no valid source, and invalid indices.
+7. Large distances, Long.MAX_VALUE, overflow, and valid alternative routes.
+8. Preservation of the input and defensive copying of result arrays.
+9. Operation counters and skipping outdated priority queue entries.
+10. Comparison with Bellman-Ford on 100 random graphs, from every source.
+
+Random tests use seed 42, 1 to 12 vertices, and 3V generated edges.
+Graphs may be directed or undirected; weights range from 0 to 20.
+Parallel edges and self-loops are allowed.
+
+For every reachable vertex, tests check the shortest distance and verify
+that its reconstructed path starts at the source, ends at the target,
+contains no repeated vertices, uses existing edges, and has the expected
+total weight. Unreachable vertices must have no distance or path.
 
 
 ## Conclusion
 
-The graph representation, optimized DSU, Kruskal, Prim, topological sorting,
-and Kosaraju's SCC algorithm are implemented and tested.
+All required algorithms are implemented: optimized DSU, Kruskal, Prim,
+topological sorting, Kosaraju's SCC algorithm, and Dijkstra's shortest paths.
 
 Both MST algorithms handle connected and disconnected undirected graphs.
 Their weights agree on known examples and 100 random connected graphs.
 
 Topological sorting returns valid orders for DAGs and detects cycles.
-Tests validate ordering constraints on 100 generated DAGs.
+SCC results are checked against independent mutual-reachability calculations.
 
-SCC tests verify unique vertex membership and correct grouping using
-independent mutual-reachability checks, including on 100 random graphs.
+Dijkstra reports distances and reconstructs routes, handles unreachable
+vertices, and rejects negative weights. Random tests compare its distances
+with Bellman-Ford from every source.
 
-The remaining work is Dijkstra's shortest paths and reproducible
-performance experiments, including tables, plots, and discussion.
+The test suites contain 61 passing test cases, including randomized checks.
+The remaining work is reproducible performance experiments, tables, plots,
+application demonstration updates, and the final comparison and discussion.
 No execution-time comparison is claimed before benchmarking.
