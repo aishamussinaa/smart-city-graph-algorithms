@@ -35,8 +35,8 @@ The project uses Java 17 and requires no external libraries.
 - Invalid vertex IDs are rejected before modifying the graph.
 - Returned edge lists are read-only views.
 
-The graph permits negative weights. The future Dijkstra implementation
-will reject them because its correctness requires non-negative weights.
+The graph permits negative weights. Dijkstra rejects them because
+its correctness requires non-negative weights.
 
 ### Disjoint Set Union
 
@@ -69,7 +69,7 @@ Parent traversals exclude the compression pass.
 Compression writes exclude links created by union.
 
 Resetting statistics does not reset components or undo path compression.
-Future experiments will create a fresh DSU for each measured run.
+Each measured Kruskal run creates a fresh DSU.
 
 ### Kruskal's Algorithm
 
@@ -285,8 +285,7 @@ DSU stores O(V) data. Its iterative operations use O(1) extra working space.
 Processing E roads takes O(V + E alpha(V)) amortized time, including
 initialization.
 
-Complexity analysis for the remaining algorithms will be added with
-their implementations.
+
 ### Kruskal
 
 Creating DSU takes O(V) time. Copying and sorting E edges takes
