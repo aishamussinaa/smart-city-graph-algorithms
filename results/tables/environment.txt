@@ -1,0 +1,19 @@
+Recorded at: 2026-10-31T15:10:08.666363800Z
+Java version: 17.0.18
+Java vendor: Microsoft
+VM: OpenJDK 64-Bit Server VM
+OS: Windows 11
+OS version: 10.0
+Architecture: amd64
+Available processors: 8
+Maximum JVM memory bytes: 4238344192
+Seed: 42
+Warmup runs per case: 20
+Measured runs per case: 5
+Dijkstra source: 0
+One fixed graph per dataset and size; reused for all runs.
+Times include algorithm allocation and operation counters.
+Generation, result validation, formatting and file I/O are excluded from timed intervals.
+Metric columns in averages.csv are per-run counts; identical counts across the five runs are verified.
+Blank metric cells mean not applicable.
+Comparisons mean sorting/heap comparator calls, depending on the algorithm.

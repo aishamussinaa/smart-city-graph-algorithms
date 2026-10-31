@@ -13,8 +13,9 @@ Implemented: weighted graph representation, optimized Disjoint Set Union
 detection, Kosaraju's strongly connected components, and Dijkstra's shortest
 distances with route reconstruction.
 
-Performance experiments, plots, and the final results discussion are
-still pending.
+Reproducible experiments cover three graph sizes, with five measured
+runs per configuration. Results include execution times, operation counts,
+two plots, and a comparison of theoretical and experimental behavior.
 
 ## Implementation
 
@@ -132,11 +133,23 @@ using these definitions rather than treated as interchangeable totals.
 
 ### City Demonstration
 
-The current demonstration contains five districts and five roads.
-Kruskal selects four roads with weights 2, 3, 4, and 5.
-Their total weight is 14, and all districts belong to one component.
-Prim also returns four roads with total weight 14. The demonstration
-prints both results and confirms that their total weights are equal.
+Running app.Main demonstrates all implemented graph tasks:
+
+- Kruskal and Prim both produce an MST with total weight 14.
+- Topological sorting returns [3, 1, 0, 2] for the dependency DAG.
+  Adding a back edge creates a cycle, which is detected.
+- Kosaraju identifies SCCs {0, 1, 2}, {3, 4}, and {5}.
+  Component and vertex ordering are not part of the correctness contract.
+- Dijkstra reports distances and reconstructed routes from district 0:
+  distances to districts 0 through 4 are 0, 3, 1, 4, and 7.
+  District 5 is unreachable.
+
+The optional command-line argument selects the source district, from 0 to 5.
+The default is 0. In IntelliJ, set Program arguments in the Main run
+configuration to choose another source.
+
+The demonstrations use separate graphs for construction costs,
+infrastructure dependencies, directed connectivity, and travel distances.
 
 ### Topological Sorting
 
@@ -371,58 +384,283 @@ separate from computing shortest distances.
     Expected final message: `All 8 SCC tests passed.`
 12. Run `shortestpath.DijkstraTest` for the shortest-path tests.
         Expected final message: `All 10 Dijkstra tests passed.`
+13. Run `benchmark.GraphGeneratorTest` for the graph generator tests.
+        Expected final message: `All 5 graph generator tests passed.`
+14. Run `benchmark.BenchmarkRunner` to reproduce the measurements.
+    This writes `raw-runs.csv`, `averages.csv`, and `environment.txt`
+    into `results/tables`.
+15. Run `benchmark.PlotGenerator` to generate both execution-time plots
+    from `results/tables/averages.csv`.
+
+Use the repository root as the working directory for both generators.
+Run benchmarks normally, without the debugger. Java 17 or later is
+required; no external libraries are needed.
+
+Running BenchmarkRunner replaces the saved measurement files.
+Running PlotGenerator replaces the saved plots. After repeating the
+benchmarks, regenerate the plots and update the README tables and discussion
+to match the new measurements.
+
+The fixed seed reproduces graph inputs and operation counts.
+Execution times will vary between runs and computers.
 
 ## Experimental Setup
 
-Planned configurations:
+### Graph Configurations
 
-| Graph | Vertices | Edges |
+| Configuration | Vertices (V) | Logical edges (E) |
 | --- | ---: | ---: |
 | Small | 10 | 30 |
 | Medium | 100 | 500 |
 | Large | 1000 | 5000 |
 
-Experiments will use fixed random seeds and five measured runs per
-configuration after JVM warm-up. Timing will use System.nanoTime().
-Relevant operations will also be counted.
+All graphs are generated using java.util.Random with seed 42.
+Edge weights are integers from 1 to 100. Self-loops and duplicate edges
+are excluded. An undirected road counts as one logical edge, although
+it appears in both endpoints' adjacency lists.
 
-Generation, validation, printing, and file output will be outside
-the timed regions.
+Three datasets are generated for each size:
 
-Both MST algorithms will receive the same connected undirected graph.
-Directed experiments will include DAGs and graphs with guaranteed cycles.
-Generation details will be documented with the benchmark implementation.
+- Connected undirected: each vertex after vertex 0 connects to a randomly
+  selected earlier vertex, creating a spanning tree. Additional unique
+  edges are added until the required edge count is reached.
+- DAG: vertices are shuffled into a random order. Edges are added only
+  from earlier to later positions, guaranteeing acyclicity.
+- Cyclic directed: edges 0 -> 1, 1 -> 2, and 2 -> 0 guarantee a cycle.
+  Additional unique directed edges are added randomly. Connectivity of
+  the entire graph is not guaranteed.
+
+These generation procedures are reproducible but do not sample uniformly
+from all possible graphs with the specified properties.
+
+### Measurement Procedure
+
+Experiments use Microsoft OpenJDK 17.0.18. Additional environment details
+are recorded in [environment.txt](results/tables/environment.txt).
+
+Each algorithm/dataset/size combination receives 20 unmeasured warmup runs,
+followed by exactly 5 measured runs using System.nanoTime().
+The reported time is the arithmetic mean of those five runs.
+
+One graph is generated per dataset and size and reused for all runs.
+Kruskal and Prim receive the same undirected graph. Dijkstra uses source
+vertex 0 on all three datasets. Topological sorting and Kosaraju run on
+both directed datasets.
+
+Timed intervals include algorithm execution, internal allocations, and
+operation counting. Dijkstra's validation of all edge weights and
+Kosaraju's reversed-graph construction are included.
+
+Graph generation, result checks, CSV formatting, console output, and file
+writing are outside timed intervals. Dijkstra's path reconstruction is
+also outside the benchmark: the measured operation computes distances
+and predecessors.
+
+The experiment contains 27 combinations and 135 measured runs.
+Operation counts are checked for equality across the five repetitions.
+Tables report counts for one run, not totals across repetitions.
+
+These are lightweight measurements in one JVM process. Warmup reduces
+startup effects but does not guarantee fully stabilized compilation.
+Scheduling, garbage collection, fixed execution order, and background
+activity can influence the results.
 
 ## Results
 
-No algorithm benchmark results have been collected yet.
-Timing tables and plots will be added after implementing the algorithms.
+Full data:
+
+- [Individual measured runs](results/tables/raw-runs.csv)
+- [Average times and operation counts](results/tables/averages.csv)
+- [Execution environment](results/tables/environment.txt)
+
+### Average Execution Time
+
+All values below are milliseconds.
+
+| Algorithm | Dataset | V=10, E=30 | V=100, E=500 | V=1000, E=5000 |
+| --- | --- | ---: | ---: | ---: |
+| Kruskal | Undirected | 0.047920 | 0.299060 | 2.032080 |
+| Prim | Undirected | 0.064360 | 0.242680 | 1.450840 |
+| Topological sort | DAG | 0.028300 | 0.175700 | 0.373320 |
+| Topological sort | Cyclic | 0.009340 | 0.062960 | 0.098900 |
+| Kosaraju | DAG | 0.088180 | 0.515800 | 1.482460 |
+| Kosaraju | Cyclic | 0.064900 | 0.399480 | 0.910520 |
+| Dijkstra | Undirected | 0.031340 | 0.605520 | 1.315160 |
+| Dijkstra | DAG | 0.010780 | 0.019000 | 0.210040 |
+| Dijkstra | Cyclic | 0.026140 | 0.145740 | 0.944620 |
+
+### MST Operation Counts
+
+Comparisons are comparator calls during sorting for Kruskal and during
+priority queue operations for Prim. Offers and polls are shown separately.
+
+| Algorithm | V | E | Edge examinations | Comparisons | DSU find calls | DSU union calls | Queue offers | Queue polls |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Kruskal | 10 | 30 | 14 | 107 | 28 | 14 | 0 | 0 |
+| Prim | 10 | 30 | 60 | 203 | 0 | 0 | 30 | 30 |
+| Kruskal | 100 | 500 | 164 | 3827 | 328 | 164 | 0 | 0 |
+| Prim | 100 | 500 | 1000 | 7697 | 0 | 0 | 500 | 500 |
+| Kruskal | 1000 | 5000 | 3356 | 50369 | 6712 | 3356 | 0 | 0 |
+| Prim | 1000 | 5000 | 10000 | 110958 | 0 | 0 | 5000 | 5000 |
+
+### Directed Connectivity Operation Counts
+
+Topological sorting counts edge examinations during indegree calculation
+and queue processing. Its queue offers and polls are equal in these runs.
+
+Kosaraju counts edge examinations across both DFS passes and reversed-graph
+construction. Vertex visits include both DFS passes.
+
+| Dataset | V | E | Topological edge examinations | Topological queue offers/polls (each) | Kosaraju edge examinations | Kosaraju vertex visits |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| DAG | 10 | 30 | 60 | 10 | 90 | 20 |
+| Cyclic | 10 | 30 | 30 | 0 | 90 | 20 |
+| DAG | 100 | 500 | 1000 | 100 | 1500 | 200 |
+| Cyclic | 100 | 500 | 500 | 0 | 1500 | 200 |
+| DAG | 1000 | 5000 | 10000 | 1000 | 15000 | 2000 |
+| Cyclic | 1000 | 5000 | 5054 | 10 | 15000 | 2000 |
+
+### Dijkstra Operation Counts
+
+Validation examines every logical edge, including edges in unreachable
+components. Search examinations count adjacency entries of reachable
+vertices. Comparisons are priority queue comparator calls.
+
+| Dataset | V | E | Validation examinations | Search examinations | Comparisons | Successful relaxations | Queue offers/polls (each) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Undirected | 10 | 30 | 30 | 60 | 83 | 17 | 18 |
+| DAG | 10 | 30 | 30 | 0 | 0 | 0 | 1 |
+| Cyclic | 10 | 30 | 30 | 30 | 25 | 11 | 12 |
+| Undirected | 100 | 500 | 500 | 1000 | 2334 | 195 | 196 |
+| DAG | 100 | 500 | 500 | 2 | 1 | 2 | 3 |
+| Cyclic | 100 | 500 | 500 | 500 | 1501 | 144 | 145 |
+| Undirected | 1000 | 5000 | 5000 | 10000 | 36683 | 1976 | 1977 |
+| DAG | 1000 | 5000 | 5000 | 337 | 2273 | 223 | 224 |
+| Cyclic | 1000 | 5000 | 5000 | 4946 | 23597 | 1415 | 1416 |
+
+### Execution-Time Plots
+
+![Execution time versus vertices](results/plots/time-vs-vertices.png)
+
+![Execution time versus edges](results/plots/time-vs-edges.png)
+
+The horizontal axes are logarithmic. Vertical axes are linear and scaled
+separately for each panel. Lines connect the three measured configurations.
+
+Both V and E increase between configurations. Therefore, these plots show
+scaling across the required datasets, not the isolated effect of changing
+only V or only E.
 
 ## Comparison and Discussion
 
-Kruskal sorts the complete edge list and uses DSU to avoid cycles.
-Prim grows trees through adjacency lists and a priority queue.
+### Kruskal vs. Prim
 
-Both algorithms returned weight 14 for the demonstration graph.
-Their total weights also matched on 100 fixed-seed random connected
-graphs. Structural checks verified that their outputs were spanning
-trees without cycles.
+Kruskal is faster on the small graph in this run: 0.047920 ms versus
+0.064360 ms. Prim is faster on the medium and large graphs, reaching
+1.450840 ms versus Kruskal's 2.032080 ms on the large graph.
 
-Equal-weight edges may produce different valid MSTs, so correctness
-comparisons use total weight and tree properties rather than identical
-edge lists or selection order.
+Kruskal sorts all E edges but stops examining sorted edges once the graph
+has one component. For the large graph, it examines 3356 of 5000 sorted
+edges. Each examined edge produces one union call and two find calls.
 
-These are correctness results, not timing measurements. Execution-time
-and operation-count comparisons across the required graph sizes
-will be added after running the benchmarks.
+Prim examines every adjacency entry: 2E for these undirected graphs
+without self-loops. This implementation inserts and eventually removes
+each logical edge once, including entries whose destination is already
+visited when they are removed.
 
-DSU tests separately verify union by size and the reduction in
-root-search work after path compression.
+Prim performs more comparator calls than Kruskal at every size, yet its
+measured time is lower at the two larger sizes. Comparator counts alone
+do not measure all work: allocation, DSU operations, collection access,
+and JVM behavior also affect runtime.
+
+The observations describe these implementations and datasets. Five runs
+on one graph per size do not establish that one algorithm is always faster.
+Correctness checks confirm equal MST weights for each benchmark graph.
+
+### Effect of DSU Optimizations
+
+Union by size attaches the smaller tree below the larger one. A vertex's
+depth increases only when its component joins one at least as large,
+which bounds tree height by O(log V) before considering compression.
+
+Path compression redirects vertices visited by find toward the root,
+reducing work in later searches. Together, the optimizations give
+amortized O(alpha(V)) time per operation.
+
+A count of find calls alone does not show this improvement: one find may
+traverse several parent links or only one. Separate DSU tests verify
+union by size and reduced parent traversals after compression.
+No benchmark speedup over an unoptimized DSU is claimed.
+
+### SCC Scaling
+
+Kosaraju's average time increases with graph size on both datasets.
+For DAGs, the times are 0.088180, 0.515800, and 1.482460 ms.
+For cyclic graphs, they are 0.064900, 0.399480, and 0.910520 ms.
+
+Operation counts follow the implementation's linear structure exactly:
+3E edge examinations and 2V vertex visits. This supports the O(V + E)
+analysis even though elapsed times do not increase in exact proportion.
+
+DAG and cyclic datasets have identical counted work at each size but
+different timings. Graph structure changes traversal order, stack
+behavior, and component-list allocation. JVM and measurement variability
+also contribute; these measurements do not isolate their individual effects.
+
+### Topological Ordering: DAGs vs. Cycles
+
+Every DAG processes all V vertices and examines 2E edges: E during
+indegree calculation and E while processing outgoing edges.
+
+The cyclic datasets require less queue processing. At the small and medium
+sizes, no vertex initially has indegree zero, so no vertices are dequeued.
+The algorithm still examines all E edges while calculating indegrees.
+
+For the large cyclic graph, 10 vertices are processed and 54 outgoing
+edges are examined after the initial 5000-edge scan. Because fewer than
+V vertices are processed, a cycle is detected and no valid order is returned.
+
+Thus, shorter times for the cyclic datasets reflect earlier termination
+of queue processing, not a different worst-case complexity.
+
+### Dijkstra Across Sizes and Datasets
+
+The connected undirected datasets make every vertex reachable from source
+0. Search examinations are exactly 2E, and queue comparisons increase
+   from 83 to 2334 to 36683 as the graphs grow.
+
+Dijkstra's DAG times are much smaller because source 0 reaches only a
+limited part of these generated graphs. Search examinations are 0, 2,
+and 337. On the small DAG, the search processes only the source.
+Validation still examines all 30, 500, and 5000 logical edges respectively.
+
+The large cyclic graph has 4946 search examinations out of 5000 directed
+edges, so some edges lie outside the source-reachable portion.
+
+These differences show why reachability and graph structure matter in
+addition to V and E. The DAG timings should not be interpreted as evidence
+that Dijkstra is inherently faster on every DAG.
+
+### Limitations
+
+Each configuration uses one fixed graph and five repeated measurements
+in a single JVM. This measures repeated execution on the same input,
+not variability across many independently generated graphs.
+
+Operation counters add overhead, and the benchmark does not separate
+allocation or garbage-collection costs. Small execution times are
+particularly sensitive to runtime and system noise.
+
+The results are consistent with the theoretical operation bounds, but
+three input sizes and these timing measurements are insufficient to
+prove asymptotic complexity or statistically significant performance
+differences.
 
 ## Testing
 
-The graph, DSU, Kruskal, Prim, topological sorting, SCC, and Dijkstra test
-suites have passed on Microsoft OpenJDK 17.0.18: 61 tests in total.
+The graph, DSU, Kruskal, Prim, topological sorting, SCC, Dijkstra, and graph
+generator test suites have passed on Microsoft OpenJDK 17.0.18:
+66 tests in total.
 
 ### Graph Tests: 6
 
@@ -558,23 +796,39 @@ that its reconstructed path starts at the source, ends at the target,
 contains no repeated vertices, uses existing edges, and has the expected
 total weight. Unreachable vertices must have no distance or path.
 
+### Graph Generator Tests: 5
+
+1. Connected undirected graphs at all three required sizes.
+2. DAGs at all three sizes, with every edge checked against a valid order.
+3. Directed cyclic graphs at all three sizes, including the guaranteed cycle.
+4. Boundary cases: a single vertex, a tree, and maximum edge counts.
+5. Rejection of invalid vertex and edge counts.
+
+Tests verify exact graph sizes, weight bounds, absence of self-loops and
+duplicate edges, and identical edge lists for repeated generation with
+the same seed. Undirected connectivity is checked independently using BFS.
+
 
 ## Conclusion
 
-All required algorithms are implemented: optimized DSU, Kruskal, Prim,
-topological sorting, Kosaraju's SCC algorithm, and Dijkstra's shortest paths.
+The application implements all required graph algorithms and includes
+66 passing test cases, reproducible benchmarks, operation-count tables,
+and execution-time plots.
 
-Both MST algorithms handle connected and disconnected undirected graphs.
-Their weights agree on known examples and 100 random connected graphs.
+Kruskal and Prim solve minimum-cost infrastructure planning for undirected
+networks. Both produce the same MST weights on the benchmark graphs.
+Kruskal was faster on the small graph, while Prim was faster on the medium
+and large graphs in this experiment.
 
-Topological sorting returns valid orders for DAGs and detects cycles.
-SCC results are checked against independent mutual-reachability calculations.
+Optimized DSU supports efficient connectivity checks and Kruskal's cycle
+detection. Topological sorting is appropriate for directed dependencies
+without cycles and reports when no valid ordering exists. Kosaraju groups
+locations that are mutually reachable through directed connections.
 
-Dijkstra reports distances and reconstructs routes, handles unreachable
-vertices, and rejects negative weights. Random tests compare its distances
-with Bellman-Ford from every source.
+Dijkstra finds shortest routes with non-negative weights and explicitly
+handles unreachable locations. Its measured search work depends on the
+portion of the graph reachable from the selected source.
 
-The test suites contain 61 passing test cases, including randomized checks.
-The remaining work is reproducible performance experiments, tables, plots,
-application demonstration updates, and the final comparison and discussion.
-No execution-time comparison is claimed before benchmarking.
+Operation counts reflect the theoretical complexity bounds. Execution
+times also depend on implementation details, graph structure, and JVM
+behavior, so the measurements do not establish a universal algorithm ranking.
