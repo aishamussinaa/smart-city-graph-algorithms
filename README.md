@@ -8,11 +8,11 @@ This Java application models a city's infrastructure as a weighted graph.
 Vertices represent districts, and edges represent roads. Weights represent
 construction costs or travel distances.
 
-Implemented: weighted graph representation, Disjoint Set Union (DSU),
-Kruskal's algorithm, Prim's algorithm, and topological sorting.
+Implemented: weighted graph representation, optimized Disjoint Set Union
+(DSU), Kruskal's and Prim's MST algorithms, topological sorting with cycle
+detection, and strongly connected components using Kosaraju's algorithm.
 
-SCC, Dijkstra, and performance benchmarks are planned for the next
-development steps.
+Dijkstra's shortest paths and performance benchmarks are still pending.
 
 ## Implementation
 
@@ -165,6 +165,28 @@ The result stores an immutable copy of the order and these counters:
 For a DAG, edgeExaminations equals 2E and both queue counters equal V.
 For cyclic graphs, processing may stop before every vertex is visited.
 
+### Strongly Connected Components
+
+Kosaraju's algorithm identifies strongly connected components in directed
+graphs. Within each component, every vertex is reachable from every other
+vertex.
+
+The first DFS pass records vertices in finishing order. The algorithm then
+reverses every edge and performs a second DFS pass in reverse finishing
+order. Each traversal in the second pass produces one SCC.
+
+Both passes use an explicit stack instead of recursion. Isolated vertices
+form individual components. Parallel edges and self-loops are supported;
+edge weights do not affect connectivity. Undirected graphs are rejected.
+
+The result contains immutable component lists and operation counters.
+Every vertex belongs to exactly one component.
+
+The edge examination counter includes the first DFS pass, construction
+of the reversed graph, and the second DFS pass: exactly 3E examinations.
+The vertex visit counter records one visit per vertex in each DFS pass:
+exactly 2V visits.
+
 ## Complexity Analysis
 
 ### Graph Representation
@@ -250,6 +272,19 @@ The input graph is not copied.
 Increasing V adds vertex initialization and queue work; increasing E
 adds indegree updates and adjacency scans.
 
+### Kosaraju's Algorithm
+
+Time complexity: O(V + E). Each DFS pass processes every vertex and edge,
+and constructing the reversed graph takes O(V + E) time.
+
+Additional space complexity: O(V + E). The reversed adjacency lists store
+V vertices and E edges. Visited arrays, finishing order, the explicit stack,
+and component lists require O(V) space.
+
+Increasing either the number of vertices or edges increases the amount
+of work linearly. These bounds assume an adjacency-list representation.
+
+
 ## Running the Project
 
 1. Open the repository in IntelliJ IDEA.
@@ -262,6 +297,8 @@ adds indegree updates and adjacency scans.
 8. Run `mst.KruskalTest` for the Kruskal tests.
 9. Run `mst.PrimTest` for the Prim tests and randomized MST comparison.
 10. Run `connectivity.TopologicalSortTest` for topological sorting tests.
+11. Run `connectivity.KosarajuTest` for the SCC tests.
+    Expected final message: `All 8 SCC tests passed.`
 
 ## Experimental Setup
 
@@ -312,8 +349,8 @@ root-search work after path compression.
 
 ## Testing
 
-The graph, DSU, Kruskal, Prim, and topological sorting test suites
-have passed on Microsoft OpenJDK 17.0.18: 43 tests in total.
+The graph, DSU, Kruskal, Prim, topological sorting, and SCC test suites
+have passed on Microsoft OpenJDK 17.0.18: 51 tests in total.
 
 ### Graph Tests: 6
 
@@ -408,19 +445,42 @@ vertex order. Weights range from -10 to 10 and are ignored by sorting.
 Cycle tests verify that the algorithm reports a cycle and returns
 an empty order, including when some vertices were processed successfully.
 
-SCC and shortest-path tests are still pending.
+### SCC Tests: 8
+
+1. A graph with three known strongly connected components.
+2. A DAG, where every vertex forms its own SCC.
+3. A disconnected graph with an isolated vertex.
+4. Parallel edges, self-loops, and different edge weights.
+5. Single-vertex and empty graphs.
+6. Rejection of undirected graphs.
+7. Preservation of the input and defensive copying of result lists.
+8. Comparison against independent reachability checks on 100 random graphs.
+
+Random tests use seed 42 and graphs with 1 to 12 vertices. Each possible
+directed edge, including self-loops, is generated with probability 0.25.
+
+An independent transitive-closure calculation checks every vertex pair:
+two vertices must belong to the same SCC if and only if each is reachable
+from the other. Tests also verify that every vertex occurs exactly once
+and validate the operation counters.
+
+Shortest-path tests are still pending.
+
 
 ## Conclusion
 
-The graph representation, optimized DSU, Kruskal, Prim, and topological
-sorting are implemented and tested.
+The graph representation, optimized DSU, Kruskal, Prim, topological sorting,
+and Kosaraju's SCC algorithm are implemented and tested.
 
 Both MST algorithms handle connected and disconnected undirected graphs.
 Their weights agree on known examples and 100 random connected graphs.
 
 Topological sorting returns valid orders for DAGs and detects cycles.
-Tests validate every edge's ordering constraint, including on
-100 generated DAGs.
+Tests validate ordering constraints on 100 generated DAGs.
 
-The remaining work is SCC, shortest paths, and reproducible performance
-experiments. No execution-time comparison is claimed before benchmarking.
+SCC tests verify unique vertex membership and correct grouping using
+independent mutual-reachability checks, including on 100 random graphs.
+
+The remaining work is Dijkstra's shortest paths and reproducible
+performance experiments, including tables, plots, and discussion.
+No execution-time comparison is claimed before benchmarking.
